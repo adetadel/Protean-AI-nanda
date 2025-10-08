@@ -1,0 +1,15 @@
+[Unit]
+Description=Nanda Adapter Example (Protean AI)
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/adapter/nanda_adapter/examples
+ExecStart=/home/ubuntu/adapter/nanda_adapter/examples/.venv/bin/python /home/ubuntu/adapter/nanda_adapter/examples/protean_agent.py
+Restart=always
+RestartSec=2
+EnvironmentFile=/etc/protean/adapter.env
+StandardOutput=journal
+StandardError=journal
+[Install]
+WantedBy=multi-user.target
