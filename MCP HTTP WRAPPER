@@ -1,0 +1,93 @@
+cat ~/mcp-servers/mcp-http-wrapper/server.js
+const express = require('express');
+const bodyParser = require('body-parser');
+const { spawn } = require('child_process');
+const path = require('path');
+
+const app = express();
+app.use(bodyParser.json());
+
+// Helper function to call MCP server
+function callMCPServer(serverPath, input) {
+    return new Promise((resolve, reject) => {
+        const mcp = spawn('node', [serverPath]);
+        let output = '';
+        let error = '';
+
+        mcp.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+
+        mcp.stderr.on('data', (data) => {
+            error += data.toString();
+        });
+
+        mcp.on('close', (code) => {
+            if (code !== 0 && error) {
+                reject(new Error(error));
+            } else {
+                try {
+                    resolve(JSON.parse(output));
+                } catch (e) {
+                    resolve({ output: output, raw: true });
+                }
+            }
+        });
+
+        // Send input to MCP server
+        mcp.stdin.write(JSON.stringify(input));
+        mcp.stdin.end();
+    });
+}
+
+// Fetch MCP Server endpoint
+app.post('/fetch', async (req, res) => {
+    try {
+        const serverPath = path.join(__dirname, '../fetch-server/build/index.js');
+        const result = await callMCPServer(serverPath, req.body);
+        res.json({ status: 'success', data: result });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+// Memory MCP Server endpoint
+app.post('/memory', async (req, res) => {
+    try {
+        const serverPath = path.join(__dirname, '../memory-server/build/index.js');
+        const result = await callMCPServer(serverPath, req.body);
+        res.json({ status: 'success', data: result });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+// Filesystem MCP Server endpoint
+app.post('/filesystem', async (req, res) => {
+    try {
+        const serverPath = path.join(__dirname, '../filesystem-server/build/index.js');
+        const result = await callMCPServer(serverPath, req.body);
+        res.json({ status: 'success', data: result });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'running',
+        servers: ['fetch', 'memory', 'filesystem'],
+        endpoints: {
+            fetch: 'POST /fetch',
+            memory: 'POST /memory',
+            filesystem: 'POST /filesystem'
+        }
+    });
+});
+
+const PORT = 3000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`MCP HTTP Wrapper running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+});
